@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="a.b.c.AaaRepository">
+
+  <insert id="create">
+    INSERT INTO tab_1 (col_1, col_2) VALUES (#{col1}, #{col2}) 
+  </insert>
+
+  <select id="select">
+    SELECT col_1 FROM tab_2
+  </select>
+
+  <update id="update">
+    UPDATE tab_3 SET col_1 = #{col1}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM tab_4
+  </delete>
+</mapper>
