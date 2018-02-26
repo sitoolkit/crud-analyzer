@@ -4,75 +4,93 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.sitoolkit.util.crudanalyzer.domain.crud.CrudMatrix;
 import org.sitoolkit.util.crudanalyzer.domain.crud.CrudMatrixWriter;
-import org.sitoolkit.util.crudanalyzer.domain.crud.MyBatisRepositoryLineProcessor;
-import org.sitoolkit.util.crudanalyzer.domain.crud.SqlHolder;
-import org.sitoolkit.util.crudanalyzer.domain.crud.SqlHolderProcessor;
+import org.sitoolkit.util.crudanalyzer.domain.crud.ErrorInfo;
+import org.sitoolkit.util.crudanalyzer.domain.crud.MyBatisMapperReader;
+import org.sitoolkit.util.crudanalyzer.domain.crud.RepositoryFunction;
+import org.sitoolkit.util.crudanalyzer.domain.crud.RepositoryFunctionProcessor;
 import org.sitoolkit.util.crudanalyzer.domain.crud.TableDef;
 import org.sitoolkit.util.crudanalyzer.domain.crud.TableDefReader;
-import org.sitoolkit.util.crudanalyzer.infra.filescan.FileScanner;
-import org.sitoolkit.util.crudanalyzer.infra.filescan.ScanningContext;
+import org.sitoolkit.util.crudanalyzer.infra.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RepositoryCrudAnalizer {
 
-    FileScanner scanner = new FileScanner();
+	MyBatisMapperReader mbmReader = new MyBatisMapperReader();
 
-    MyBatisRepositoryLineProcessor finder = new MyBatisRepositoryLineProcessor();
+	RepositoryFunctionProcessor processor = new RepositoryFunctionProcessor();
 
-    SqlHolderProcessor processor = new SqlHolderProcessor();
+	TableDefReader reader = new TableDefReader();
 
-    TableDefReader reader = new TableDefReader();
+	CrudMatrixWriter writer = new CrudMatrixWriter();
 
-    CrudMatrixWriter writer = new CrudMatrixWriter();
+	public static void main(String[] args) {
+		int ret = new RepositoryCrudAnalizer().execute(Paths.get(Config.getInstance().getResDir()), null,
+				Paths.get(Config.getInstance().getOutFile()));
 
-    public static void main(String[] args) {
+		System.exit(ret);
+	}
 
-        String dir = args.length == 0 ? "." : args[0];
-        int ret = new RepositoryCrudAnalizer().execute(Paths.get(dir), Paths.get("tables.txt"),
-                Paths.get("crud.csv"));
+	public int execute(Path srcDir, Path tableListFile, Path outFile) {
+		try {
+			CrudMatrix matrix = read(srcDir, tableListFile);
 
-        System.exit(ret);
-    }
+			log.info("action count : {}", matrix.getCrudRowMap().size());
 
-    public int execute(Path srcDir, Path tableListFile, Path outFile) {
-        try {
-            CrudMatrix matrix = read(srcDir, tableListFile);
+			writer.write(matrix, outFile);
 
-            log.info("action count : {}", matrix.getCrudRowMap().size());
+			return 0;
+		} catch (Exception e) {
+			log.error("error occurs", e);
+			return 1;
+		}
+	}
 
-            writer.write(matrix, outFile);
+	public CrudMatrix read(Path srcDir, Path tableDefFile) {
+		CrudMatrix matrix = new CrudMatrix();
+		List<TableDef> tableDefs = reader.read(tableDefFile);
+		matrix.getTableDefs().addAll(tableDefs);
 
-            return 0;
-        } catch (Exception e) {
-            log.error("error occurs", e);
-            return 1;
-        }
-    }
+		Pattern pattern = Pattern.compile(Config.getInstance().getRepositoryPathPattern());
+		mbmReader.init();
+		try {
+			List<Path> paths = Files.walk(srcDir).filter(path -> pattern.matcher(path.toString()).matches())
+					.collect(Collectors.toList());
 
-    public CrudMatrix read(Path srcDir, Path tableDefFile) {
-        CrudMatrix matrix = new CrudMatrix();
-        List<TableDef> tableDefs = reader.read(tableDefFile);
-        matrix.getTableDefs().addAll(tableDefs);
+			List<Path> readPaths = new ArrayList<>();
+			paths.stream().parallel().forEach(repositoryXml -> {
+				log.debug("read:{}", repositoryXml);
+				List<RepositoryFunction> rfs = mbmReader.read(repositoryXml);
 
-        try {
-            Files.walk(srcDir).filter(path -> path.toString().endsWith("Repository.xml"))
-                    .forEach(repositoryXml -> {
-                        ScanningContext ctx = scanner.scan(repositoryXml, finder);
+				readPaths.add(repositoryXml);
+				matrix.merge(processor.process(rfs, tableDefs));
+				
+				if (readPaths.size() % 10 == 0) {
+					log.info("Processed repository files : {} / {}", readPaths.size(), paths.size());
+				}
+			});
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
-                        SqlHolder holder = finder.getResult(ctx);
+		matrix.getErrorMap().entrySet().stream().forEach(entry -> {
+			String function = entry.getKey();
+			ErrorInfo errorInfo = entry.getValue();
+			log.warn("function:{}", function);
+			log.warn("sqlText:{}", errorInfo.getSqlText());
+			log.warn("editedSqlText:{}", errorInfo.getEditedSqlText());
+			log.warn("errorMessage:{}", errorInfo.getErrorMessage());
+		});
 
-                        matrix.merge(processor.process(holder, tableDefs));
-                    });
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        return matrix;
-    }
+		log.info("functions:{}, errors:{}", matrix.getCrudRowMap().size(), matrix.getErrorMap().size());
+		return matrix;
+	}
 }

@@ -1,1 +1,5 @@
 /target/
+/crud-analyzer*.log
+/crud-analyzer.properties
+/jar-list.txt
+/crud.csv

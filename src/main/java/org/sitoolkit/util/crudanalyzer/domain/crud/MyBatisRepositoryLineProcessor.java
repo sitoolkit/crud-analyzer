@@ -68,6 +68,7 @@ public class MyBatisRepositoryLineProcessor implements LineProcessor<SqlHolder> 
         }
 
         if (holder.isCollecting()) {
+        	trimedLine = StringUtils.substringBefore(trimedLine, "--");
             holder.addQueryLine(trimedLine);
         }
 

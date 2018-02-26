@@ -1,17 +1,18 @@
 package org.sitoolkit.util.crudanalyzer.domain.methodcall;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import lombok.Data;
 
 @Data
 public class MethodDef {
-
+	
     private String name;
     private String signature;
-    private List<MethodDef> methodCalls = new ArrayList<>();
+    private boolean isPublic;
+    private Set<MethodDef> methodCalls = new HashSet<>();
 
     public Stream<MethodDef> getMethodCallsRecursively() {
         return Stream.concat(Stream.of(this),

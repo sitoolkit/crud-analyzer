@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import org.sitoolkit.util.crudanalyzer.domain.methodcall.MethodCallDictionary;
 import org.sitoolkit.util.crudanalyzer.domain.methodcall.MethodCallReader;
 import org.sitoolkit.util.crudanalyzer.domain.methodcall.MethodCallWriter;
+import org.sitoolkit.util.crudanalyzer.infra.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,8 +18,7 @@ public class MethodCallAnalyzer {
     MethodCallWriter writer = new MethodCallWriter();
 
     public static void main(String[] args) {
-        String srcDir = args.length == 0 ? "." : args[0];
-        System.exit(new MethodCallAnalyzer().execute(Paths.get(srcDir)));
+        System.exit(new MethodCallAnalyzer().execute(Paths.get(Config.getInstance().getSrcDir())));
     }
 
     public int execute(Path srcDir) {

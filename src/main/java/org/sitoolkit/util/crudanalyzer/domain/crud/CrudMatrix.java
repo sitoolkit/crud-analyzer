@@ -1,5 +1,6 @@
 package org.sitoolkit.util.crudanalyzer.domain.crud;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -20,12 +21,21 @@ public class CrudMatrix {
 
 	private SortedSet<TableDef> tableDefs = new TreeSet<>();
 	
+	/**
+	 * key: function
+	 */
+	private Map<String, ErrorInfo> errorMap = new HashMap<>();
+	
 	public void add(String function, TableDef table, CrudType type, String sqlText) {
 
-		log.info("{}, {}, {}", function, table.getName(), type);
+		log.debug("{}, {}, {}", function, table.getName(), type);
 
 		CrudRow row = crudRowMap.computeIfAbsent(function, CrudRow::new);
 		row.add(table, type, sqlText);
+	}
+	
+	public void addError(String function, String sqlText, String editedSqlText, String errorMessage) {
+		errorMap.put(function, new ErrorInfo(sqlText, editedSqlText, errorMessage));
 	}
 
 	public SortedSet<TableDef> getAllTablesOrderByName() {
@@ -35,5 +45,6 @@ public class CrudMatrix {
 
 	public void merge(CrudMatrix matrix) {
 		crudRowMap.putAll(matrix.getCrudRowMap());
+		errorMap.putAll(matrix.getErrorMap());
 	}
 }

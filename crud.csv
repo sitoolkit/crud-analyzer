@@ -1,5 +1,0 @@
-function / table,tab_1,tab_2,tab_3,tab_4,SQL TEXT
-AaaRepository.create,C,,,,"insert into tab_1 (col_1, col_2) values (#{col1}, #{col2})"
-AaaRepository.delete,,,,D,"delete from tab_4"
-AaaRepository.select,,R,,,"select col_1 from tab_2"
-AaaRepository.update,,,U,,"update tab_3 set col_1 = #{col1}"

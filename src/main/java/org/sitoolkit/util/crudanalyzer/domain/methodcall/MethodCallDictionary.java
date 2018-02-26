@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import lombok.Getter;
 
@@ -12,7 +13,7 @@ public class MethodCallDictionary {
     @Getter
     private List<ClassDef> classDefs = new ArrayList<>();
 
-    private Map<String, List<MethodDef>> methodCallMap = new HashMap<>();
+    private Map<String, Set<MethodDef>> methodCallMap = new HashMap<>();
 
     public void add(ClassDef classDef) {
         classDefs.add(classDef);
@@ -28,7 +29,7 @@ public class MethodCallDictionary {
                 methodDef.getMethodCalls().stream().forEach(methodCall -> {
 
                     if (methodCall.getMethodCalls().isEmpty()) {
-                        List<MethodDef> calledMethods = methodCallMap
+                        Set<MethodDef> calledMethods = methodCallMap
                                 .get(methodCall.getSignature());
                         if (calledMethods != null) {
                             methodCall.setMethodCalls(calledMethods);

@@ -1,13 +1,14 @@
 package org.sitoolkit.util.crudanalyzer.domain.crud.jsqlparser;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.sitoolkit.util.crudanalyzer.domain.crud.CrudFindResult;
 import org.sitoolkit.util.crudanalyzer.domain.crud.CrudFinder;
 import org.sitoolkit.util.crudanalyzer.domain.crud.CrudType;
-import org.sitoolkit.util.crudanalyzer.domain.crud.TableCrud;
 
 import lombok.extern.slf4j.Slf4j;
-import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.parser.TokenMgrError;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
@@ -22,57 +23,57 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 public class CrudFinderJsqlparserImpl implements CrudFinder {
 
     @Override
-    public TableCrud findCrud(String sqlText) {
-        TableCrud tableCrud = new TableCrud();
+    public CrudFindResult findCrud(String sqlText) {
+        CrudFindResult result = new CrudFindResult();
 
         try {
             Statement stmt = CCJSqlParserUtil.parse(sqlText);
 
             if (stmt instanceof Insert) {
                 Insert insert = (Insert) stmt;
-                tableCrud.put(insert.getTable().getName(), CrudType.CREATE);
+                result.put(insert.getTable().getName(), CrudType.CREATE);
 
-                findCrudFromSelect(insert.getSelect(), tableCrud);
+                findCrudFromSelect(insert.getSelect(), result);
 
             } else if (stmt instanceof Select) {
 
-                findCrudFromSelect((Select) stmt, tableCrud);
+                findCrudFromSelect((Select) stmt, result);
 
             } else if (stmt instanceof Update) {
                 Update update = (Update) stmt;
                 update.getTables().stream()
-                        .forEach(table -> tableCrud.put(table.getName(), CrudType.UPDATE));
+                        .forEach(table -> result.put(table.getName(), CrudType.UPDATE));
 
                 if (update.getExpressions() != null) {
                     update.getExpressions().stream()
-                            .forEach(expr -> findReferenceFromExpression(expr, tableCrud));
+                            .forEach(expr -> findReferenceFromExpression(expr, result));
                 }
 
-                findReferenceFromExpression(update.getWhere(), tableCrud);
+                findReferenceFromExpression(update.getWhere(), result);
 
             } else if (stmt instanceof Delete) {
                 Delete delete = (Delete) stmt;
-                tableCrud.put(delete.getTable().getName(), CrudType.DELETE);
+                result.put(delete.getTable().getName(), CrudType.DELETE);
 
             } else if (stmt instanceof Merge) {
                 Merge merge = (Merge) stmt;
-                tableCrud.put(merge.getTable().getName(), CrudType.MERGE);
+                result.put(merge.getTable().getName(), CrudType.MERGE);
 
-                findReferenceFromExpression(merge.getUsingSelect(), tableCrud);
+                findReferenceFromExpression(merge.getUsingSelect(), result);
 
                 if (merge.getUsingTable() != null) {
-                    tableCrud.put(merge.getUsingTable().getName(), CrudType.REFERENCE);
+                    result.put(merge.getUsingTable().getName(), CrudType.REFERENCE);
                 }
             }
 
-        } catch (JSQLParserException e) {
-            log.warn("SQL parse error", e);
+        } catch (Exception | TokenMgrError e) {
+            result.setErrMsg(ExceptionUtils.getStackTrace(e));
         }
 
-        return tableCrud;
+        return result;
     }
 
-    void findCrudFromSelect(Select select, TableCrud tableCrud) {
+    void findCrudFromSelect(Select select, CrudFindResult tableCrud) {
 
         if (select == null) {
             return;
@@ -94,7 +95,7 @@ public class CrudFinderJsqlparserImpl implements CrudFinder {
 
     }
 
-    void findReferenceFromSatement(Statement stmt, TableCrud tableCrud) {
+    void findReferenceFromSatement(Statement stmt, CrudFindResult tableCrud) {
 
         if (stmt == null) {
             return;
@@ -107,7 +108,7 @@ public class CrudFinderJsqlparserImpl implements CrudFinder {
 
     }
 
-    void findReferenceFromExpression(Expression expr, TableCrud tableCrud) {
+    void findReferenceFromExpression(Expression expr, CrudFindResult tableCrud) {
 
         if (expr == null) {
             return;

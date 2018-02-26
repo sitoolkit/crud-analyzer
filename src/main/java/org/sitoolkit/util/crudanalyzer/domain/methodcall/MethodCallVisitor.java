@@ -1,6 +1,7 @@
 package org.sitoolkit.util.crudanalyzer.domain.methodcall;
 
 import java.util.List;
+import java.util.Set;
 
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
@@ -13,12 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 
 @AllArgsConstructor
 @Slf4j
-public class MethodCallVisitor extends VoidVisitorAdapter<List<MethodDef>> {
+public class MethodCallVisitor extends VoidVisitorAdapter<Set<MethodDef>> {
 
     JavaParserFacade jpf;
 
     @Override
-    public void visit(MethodCallExpr methodCallExpr, List<MethodDef> methodCalls) {
+    public void visit(MethodCallExpr methodCallExpr, Set<MethodDef> methodCalls) {
         try {
             SymbolReference<ResolvedMethodDeclaration> ref = jpf.solve(methodCallExpr);
 
@@ -26,13 +27,13 @@ public class MethodCallVisitor extends VoidVisitorAdapter<List<MethodDef>> {
                 ResolvedMethodDeclaration rmd = ref.getCorrespondingDeclaration();
                 MethodDef methodCall = new MethodDef();
                 methodCall.setSignature(rmd.getQualifiedSignature());
-                log.info("Add method call : {}", methodCall);
+                log.debug("Add method call : {}", methodCall);
                 methodCalls.add(methodCall);
             } else {
-                log.warn("Unsolved : {}", methodCallExpr);
+                log.debug("Unsolved : {}", methodCallExpr);
             }
         } catch (Exception e) {
-            log.warn("Unsolved:{}, {}", methodCallExpr, e);
+            log.debug("Unsolved:{}, {}", methodCallExpr, e);
         }
 
     }

@@ -14,24 +14,11 @@ public class CrudRow {
 	private String actionPath;
 	private Map<TableDef, Set<CrudType>> cellMap = new HashMap<>();
 	private Map<TableDef, Set<String>> sqlTextMap = new HashMap<>();
-
+	private Set<String> repositoryFunctions = new HashSet<>();
+	
 	public CrudRow(String actionPath) {
 		super();
 		this.actionPath = actionPath;
-	}
-	
-	public CrudRow(CrudRow crudRow) {
-		this.actionPath = crudRow.getActionPath();
-		crudRow.getCellMap().entrySet().forEach(entry -> {
-			Set<CrudType> newType = new HashSet<>();
-			entry.getValue().stream().forEach(newType::add);
-			this.cellMap.put(entry.getKey(), newType);
-		});
-		crudRow.getSqlTextMap().entrySet().forEach(entry -> {
-			Set<String> newSql = new HashSet<>();
-			entry.getValue().stream().forEach(newSql::add);
-			this.sqlTextMap.put(entry.getKey(), newSql);
-		});
 	}
 	
 	public void add(TableDef table, CrudType type, String sqlText) {
@@ -49,29 +36,20 @@ public class CrudRow {
 		return sqlTextMap.get(table);
 	}
 	
-	public CrudRow merge(CrudRow crud) {
-		crud.getCellMap().entrySet().stream().forEach(entry -> {
-			Set<CrudType> existingSet = cellMap.get(entry.getKey());
-
-			Set<CrudType> newType = new HashSet<>();
-			entry.getValue().stream().forEach(newType::add);
-			if (existingSet == null) {
-				cellMap.put(entry.getKey(), newType);
-			} else {
-				existingSet.addAll(newType);
-			}
+	public CrudRow merge(CrudRow mergingCrud) {
+		
+		mergingCrud.getCellMap().entrySet().stream().forEach(cellMapEntry -> {
+			Set<CrudType> existingSet = cellMap.computeIfAbsent(cellMapEntry.getKey(), key -> new HashSet<>());
+			existingSet.addAll(cellMapEntry.getValue());
 		});
-		crud.getSqlTextMap().entrySet().stream().forEach(entry -> {
-			Set<String> existingSet = sqlTextMap.get(entry.getKey());
-
-			Set<String> newSql = new HashSet<>();
-			entry.getValue().stream().forEach(newSql::add);
-			if (existingSet == null) {
-				sqlTextMap.put(entry.getKey(), newSql);
-			} else {
-				existingSet.addAll(newSql);
-			}
+		
+		mergingCrud.getSqlTextMap().entrySet().stream().forEach(sqlTextMapEntry -> {
+			Set<String> existingSet = sqlTextMap.computeIfAbsent(sqlTextMapEntry.getKey(), key -> new HashSet<>());
+			existingSet.addAll(sqlTextMapEntry.getValue());
 		});
-		return crud;
+		
+		repositoryFunctions.addAll(mergingCrud.getRepositoryFunctions());
+		
+		return mergingCrud;
 	}
 }

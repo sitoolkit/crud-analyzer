@@ -10,113 +10,139 @@ import java.util.SortedSet;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.sitoolkit.util.crudanalyzer.infra.SpecialCharactor;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class CrudMatrixWriter {
 
-    // private static final String REG_EXP_WILDCARD = "*";
-    private static final String CSV_DELIMITER = "\"";
-    private static final String CSV_SEPARATOR = ",";
+	// private static final String REG_EXP_WILDCARD = "*";
+	private static final String CSV_ENCLOSER = "\"";
+	private static final String CSV_SEPARATOR = ",";
 
-    public void write(CrudMatrix matrix, Path path) {
+	public void write(CrudMatrix matrix, Path path) {
+		write(matrix, path, Option.SQL_TEXT);
+	}
 
-        List<String> outputLines = new ArrayList<>();
+	public enum Option {
+		SQL_TEXT, REPOSITORY_FUNCTION;
+	}
 
-        List<String> headerLine = new ArrayList<>();
-        headerLine.add("function / table");
-        SortedSet<TableDef> tables = matrix.getAllTablesOrderByName();
-        tables.stream().forEach(table -> headerLine.add(table.getName()));
-        headerLine.add("SQL TEXT");
-        outputLines.add(String.join(CSV_SEPARATOR, headerLine));
+	public void write(CrudMatrix matrix, Path path, Option option) {
 
-        outputLines.addAll(buildBodyLines(matrix, tables));
+		List<String> outputLines = new ArrayList<>();
 
-        // outputLines.add(buildCountIf(CrudType.UPDATE, tables.size() + 1,
-        // outputLines.size()));
-        // outputLines.add(buildCountIf(CrudType.DELETE, tables.size() + 1,
-        // outputLines.size() - 1));
-        // outputLines.add(buildCountIf(CrudType.MERGE, tables.size() + 1,
-        // outputLines.size() - 2));
-        // outputLines.add(buildSum(tables.size() + 1, outputLines.size()));
+		List<String> headerLine = new ArrayList<>();
+		headerLine.add("function / table");
+		SortedSet<TableDef> tables = matrix.getAllTablesOrderByName();
+		tables.stream().forEach(table -> headerLine.add(table.getName()));
+		headerLine.add(option.name().toLowerCase().replace("_", " "));
+		outputLines.add(String.join(CSV_SEPARATOR, headerLine));
 
-        try {
-            Files.write(path, outputLines);
-        } catch (IOException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
+		outputLines.addAll(buildBodyLines(matrix, tables, option));
 
-    List<String> buildBodyLines(CrudMatrix matrix, SortedSet<TableDef> tables) {
-        return matrix.getCrudRowMap().entrySet().stream().map(functionCrudRow -> {
-            String function = functionCrudRow.getKey();
-            CrudRow crudRow = functionCrudRow.getValue();
+		// outputLines.add(buildCountIf(CrudType.UPDATE, tables.size() + 1,
+		// outputLines.size()));
+		// outputLines.add(buildCountIf(CrudType.DELETE, tables.size() + 1,
+		// outputLines.size() - 1));
+		// outputLines.add(buildCountIf(CrudType.MERGE, tables.size() + 1,
+		// outputLines.size() - 2));
+		// outputLines.add(buildSum(tables.size() + 1, outputLines.size()));
 
-            List<String> line = new ArrayList<>();
-            line.add(function);
+		try {
+			Files.write(path, outputLines);
+			
+		} catch (IOException e) {
+			path = path.resolveSibling(path.getFileName() + Long.toString(System.currentTimeMillis()));
+			try {
+				Files.write(path, outputLines);
+			} catch (IOException e1) {
+				throw new IllegalArgumentException(e);
+			}
+		}
+		
+		log.info("write file:{}", path);
+	}
 
-            tables.stream().forEach(table -> {
-                Set<CrudType> crudTypes = crudRow.getType(table);
+	List<String> buildBodyLines(CrudMatrix matrix, SortedSet<TableDef> tables, Option option) {
+		return matrix.getCrudRowMap().entrySet().stream().map(functionCrudRow -> {
+			String function = functionCrudRow.getKey();
+			CrudRow crudRow = functionCrudRow.getValue();
 
-                if (crudTypes == null) {
-                    line.add(StringUtils.EMPTY);
-                } else {
-                    line.add(crudTypes.stream().map(CrudType::toString)
-                            .collect(Collectors.joining()));
-                }
-            });
+			List<String> line = new ArrayList<>();
+			line.add(CSV_ENCLOSER + function + CSV_ENCLOSER);
 
-            tables.stream().forEach(table -> {
-                Set<String> sqls = crudRow.getSql(table);
+			tables.stream().forEach(table -> {
+				Set<CrudType> crudTypes = crudRow.getType(table);
 
-                if (sqls != null) {
-                    sqls.stream()
-                            .forEach(sql -> line.add(CSV_DELIMITER + escape(sql) + CSV_DELIMITER));
-                }
-            });
+				if (crudTypes == null) {
+					line.add(StringUtils.EMPTY);
+				} else {
+					line.add(crudTypes.stream().map(CrudType::toString).collect(Collectors.joining()));
+				}
+			});
 
-            return String.join(CSV_SEPARATOR, line);
-        }).collect(Collectors.toList());
-    }
+			switch (option) {
+			case SQL_TEXT:
+				tables.stream().forEach(table -> {
+					Set<String> sqls = crudRow.getSql(table);
 
-    String escape(String sqlText) {
-        return SpecialCharactor.CSV_DOUBLE_QUATE.escape(sqlText);
-    }
+					if (sqls != null) {
+						sqls.stream().forEach(sql -> line.add(CSV_ENCLOSER + escape(sql) + CSV_ENCLOSER));
+					}
+				});
+				break;
+			case REPOSITORY_FUNCTION:
+				crudRow.getRepositoryFunctions().stream().forEach(repoFunc -> line.add(repoFunc));
+				break;
+			}
 
-    // private String buildSum(int rowSize, int lineSize) {
-    // return "SUM" + CSV_SEPARATOR + IntStream.range(1, rowSize).mapToObj(i ->
-    // {
-    // return formatFormula("\"=SUM(%s)\"", lineSize - 2, lineSize, i, null);
-    // }).collect(Collectors.joining(CSV_SEPARATOR));
-    // }
+			return String.join(CSV_SEPARATOR, line);
+		}).collect(Collectors.toList());
+	}
 
-    // String buildCountIf(CrudType type, int rowSize, int lineSize) {
-    // return type.toString() + CSV_SEPARATOR + IntStream.range(1,
-    // rowSize).mapToObj(i -> {
-    // return formatFormula("\"=COUNTIF(%s, \"\"%s\"\")\"", 2, lineSize, i,
-    // REG_EXP_WILDCARD + type.toString() + REG_EXP_WILDCARD);
-    // }).collect(Collectors.joining(CSV_SEPARATOR));
-    // }
-    //
-    // String formatFormula(String format, int startWith, int lineSize, int
-    // index, String value) {
-    // String rowAlfa = toAlfa(index) + "$";
-    // String topCell = rowAlfa + startWith;
-    // String buttomCell = rowAlfa + lineSize;
-    // if (StringUtils.isEmpty(value)) {
-    // return String.format(format, topCell + ":" + buttomCell);
-    // } else {
-    // return String.format(format, topCell + ":" + buttomCell, value);
-    // }
-    // }
-    //
-    // public static String toAlfa(final int number) {
-    // int temp = number;
-    // int alfaRange = ('Z' - 'A') + 1;
-    // StringBuilder sb = new StringBuilder();
-    // do {
-    // sb.append((char) ('A' + (temp % alfaRange)));
-    // temp /= alfaRange;
-    // } while (0 < temp--);
-    // return sb.reverse().toString();
-    // }
+	String escape(String sqlText) {
+		if (StringUtils.isEmpty(sqlText)) {
+			return "";
+		}
+		return sqlText.replace(CSV_ENCLOSER, CSV_ENCLOSER + CSV_ENCLOSER).replace("\r\n", "").replace("\n", "");
+	}
+
+	// private String buildSum(int rowSize, int lineSize) {
+	// return "SUM" + CSV_SEPARATOR + IntStream.range(1, rowSize).mapToObj(i ->
+	// {
+	// return formatFormula("\"=SUM(%s)\"", lineSize - 2, lineSize, i, null);
+	// }).collect(Collectors.joining(CSV_SEPARATOR));
+	// }
+
+	// String buildCountIf(CrudType type, int rowSize, int lineSize) {
+	// return type.toString() + CSV_SEPARATOR + IntStream.range(1,
+	// rowSize).mapToObj(i -> {
+	// return formatFormula("\"=COUNTIF(%s, \"\"%s\"\")\"", 2, lineSize, i,
+	// REG_EXP_WILDCARD + type.toString() + REG_EXP_WILDCARD);
+	// }).collect(Collectors.joining(CSV_SEPARATOR));
+	// }
+	//
+	// String formatFormula(String format, int startWith, int lineSize, int
+	// index, String value) {
+	// String rowAlfa = toAlfa(index) + "$";
+	// String topCell = rowAlfa + startWith;
+	// String buttomCell = rowAlfa + lineSize;
+	// if (StringUtils.isEmpty(value)) {
+	// return String.format(format, topCell + ":" + buttomCell);
+	// } else {
+	// return String.format(format, topCell + ":" + buttomCell, value);
+	// }
+	// }
+	//
+	// public static String toAlfa(final int number) {
+	// int temp = number;
+	// int alfaRange = ('Z' - 'A') + 1;
+	// StringBuilder sb = new StringBuilder();
+	// do {
+	// sb.append((char) ('A' + (temp % alfaRange)));
+	// temp /= alfaRange;
+	// } while (0 < temp--);
+	// return sb.reverse().toString();
+	// }
 }
