@@ -33,7 +33,8 @@ public class CrudMatrixWriter {
 		List<String> outputLines = new ArrayList<>();
 
 		List<String> headerLine = new ArrayList<>();
-		headerLine.add("function / table");
+		headerLine.add("function");
+		headerLine.add("action / table");
 		SortedSet<TableDef> tables = matrix.getAllTablesOrderByName();
 		tables.stream().forEach(table -> headerLine.add(table.getName()));
 		headerLine.add(option.name().toLowerCase().replace("_", " "));
@@ -71,6 +72,7 @@ public class CrudMatrixWriter {
 
 			List<String> line = new ArrayList<>();
 			line.add(CSV_ENCLOSER + function + CSV_ENCLOSER);
+			line.add(CSV_ENCLOSER + crudRow.getActionPath() + CSV_ENCLOSER);
 
 			tables.stream().forEach(table -> {
 				Set<CrudType> crudTypes = crudRow.getType(table);

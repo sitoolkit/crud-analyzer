@@ -61,7 +61,8 @@ public class CrudMatrixProcessor {
 										CrudRow controllerMethodCrudRow = controllerMethodMap.get(controllerMethod.getSignature());
 
 										if (controllerMethodCrudRow == null) {
-											controllerMethodCrudRow = new CrudRow(controllerMethod.getSignature());
+											controllerMethodCrudRow = new CrudRow(controllerMethod.getActionPath());
+											
 											controllerMethodMap.put(controllerMethod.getSignature(), controllerMethodCrudRow);
 										}
 										controllerMethodCrudRow.merge(repositoryMethodCrudRow);

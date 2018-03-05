@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.sitoolkit.util.crudanalyzer.infra.config.Config;
 
 import com.github.javaparser.JavaParser;
@@ -19,6 +20,10 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.NormalAnnotationExpr;
+import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
@@ -45,21 +50,20 @@ public class MethodCallReader {
 			Pattern p = Pattern.compile(Config.getInstance().getJavaFilePattern());
 			List<Path> files = Files.walk(srcDir).filter(file -> p.matcher(file.toFile().getName()).matches())
 					.collect(Collectors.toList());
-			
-			
+
 			files.stream().forEach(javaFile -> {
 				readJava(javaFile).ifPresent(classDef -> dictionary.add(classDef));
-				
+
 				int readCount = dictionary.getClassDefs().size();
 				if (readCount % 10 == 0) {
 					log.info("Processed java files : {} / {} ", readCount, files.size());
 				}
 			});
-			
+
 			// JavaParserFacade seems to be NOT thread-safe
-//			files.stream().parallel().forEach(javaFile -> {
-//				readJava(javaFile).ifPresent(classDef -> dictionary.add(classDef));
-//			});
+			// files.stream().parallel().forEach(javaFile -> {
+			// readJava(javaFile).ifPresent(classDef -> dictionary.add(classDef));
+			// });
 		} catch (IOException e) {
 			throw new IllegalStateException(e);
 		}
@@ -79,8 +83,8 @@ public class MethodCallReader {
 		if (jarList.toFile().exists()) {
 			try {
 				String jarListStr = new String(Files.readAllBytes(jarList));
-				
-				for(String line : jarListStr.split(File.pathSeparator + "|" + System.lineSeparator())) {
+
+				for (String line : jarListStr.split(File.pathSeparator + "|" + System.lineSeparator())) {
 					try {
 						combinedTypeSolver.add(JarTypeSolver.getJarTypeSolver(line));
 						log.info("jar is added. {}", line);
@@ -126,24 +130,29 @@ public class MethodCallReader {
 	}
 
 	List<MethodDef> readMethodDefs(ClassOrInterfaceDeclaration typeDec) {
+		
 		List<MethodDef> methodDefs = new ArrayList<>();
 
+		String classActionPath = getActionPath(typeDec);
+		
 		jpf.getTypeDeclaration(typeDec).getDeclaredMethods().forEach(declaredMethod -> {
-
+			
 			MethodDef methodDef = new MethodDef();
 			methodDef.setPublic(declaredMethod.accessSpecifier() == AccessSpecifier.PUBLIC);
 			methodDef.setName(declaredMethod.getName());
 			methodDef.setSignature(declaredMethod.getQualifiedSignature());
-			log.debug("Add method declaration : {}", methodDef);
 			methodDefs.add(methodDef);
 
 			if (!typeDec.isInterface()) {
 				typeDec.getMethods().stream().forEach(method -> {
 					if (equalMethods(declaredMethod, method)) {
 						method.accept(methodCallVisitor, methodDef.getMethodCalls());
+						methodDef.setActionPath(classActionPath + getActionPath(method));
 					}
 				});
 			}
+			
+			log.debug("Add method declaration : {}", methodDef);
 
 		});
 
@@ -171,10 +180,54 @@ public class MethodCallReader {
 		return true;
 	}
 	
+	private static final String[] ACTION_ANNOTATION_NAMES = new String[] {"RequestMapping", "PostMapping", "GetMapping"};
+	
+	String getActionPath(NodeWithAnnotations<?> nwa) {
+
+		for (String annotationName : ACTION_ANNOTATION_NAMES) {
+			Optional<AnnotationExpr> annotation = nwa.getAnnotationByName(annotationName);
+			if (annotation.isPresent()) {
+				return retrive(annotation.get());
+			}
+		}
+		
+		return "";
+	}
+
+	String retrive(AnnotationExpr annotation) {
+		
+		StringBuilder actionPath = new StringBuilder();
+		
+		annotation.toNormalAnnotationExpr().ifPresent(nae -> {
+			nae.getPairs().forEach(mvp -> {
+				if (StringUtils.equals(mvp.getNameAsString(), "path")) {
+					actionPath.append(adjust(mvp.getValue().toString()));
+				}
+			});
+		});
+
+		annotation.toSingleMemberAnnotationExpr().ifPresent(smae -> {
+			actionPath.append(adjust(smae.getMemberValue().toString()));
+		});
+		return actionPath.toString();
+	}
+	
+	String adjust(String path) {
+		if (StringUtils.isEmpty(path)) {
+			return "";
+		}
+		String adjust = StringUtils.strip(path, "\"");
+		if (adjust.startsWith("/")) {
+			return adjust;
+		} else {
+			return "/" + adjust;
+		}
+	}
+
 	public static void main(String[] args) throws IOException {
 		String str = new String(Files.readAllBytes(Paths.get("jar-list.txt")));
-		
-		for(String line : str.split(File.pathSeparator + "|" + System.lineSeparator())) {
+
+		for (String line : str.split(File.pathSeparator + "|" + System.lineSeparator())) {
 			System.out.println(line);
 		}
 	}

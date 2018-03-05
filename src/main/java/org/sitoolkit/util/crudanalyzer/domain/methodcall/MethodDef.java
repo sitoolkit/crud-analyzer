@@ -12,6 +12,7 @@ public class MethodDef {
     private String name;
     private String signature;
     private boolean isPublic;
+    private String actionPath;
     private Set<MethodDef> methodCalls = new HashSet<>();
 
     public Stream<MethodDef> getMethodCallsRecursively() {

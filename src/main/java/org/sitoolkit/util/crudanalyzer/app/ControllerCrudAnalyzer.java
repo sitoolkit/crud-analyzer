@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ControllerCrudAnalyzer {
 
-    RepositoryCrudAnalizer repoCrudAnalizer = new RepositoryCrudAnalizer();
+    RepositoryCrudAnalyzer repoCrudAnalizer = new RepositoryCrudAnalyzer();
 
     MethodCallReader methodCallReader = new MethodCallReader();
 

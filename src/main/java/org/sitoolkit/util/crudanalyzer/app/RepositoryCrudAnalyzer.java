@@ -22,7 +22,7 @@ import org.sitoolkit.util.crudanalyzer.infra.config.Config;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RepositoryCrudAnalizer {
+public class RepositoryCrudAnalyzer {
 
 	MyBatisMapperReader mbmReader = new MyBatisMapperReader();
 
@@ -33,7 +33,7 @@ public class RepositoryCrudAnalizer {
 	CrudMatrixWriter writer = new CrudMatrixWriter();
 
 	public static void main(String[] args) {
-		int ret = new RepositoryCrudAnalizer().execute(Paths.get(Config.getInstance().getResDir()), null,
+		int ret = new RepositoryCrudAnalyzer().execute(Paths.get(Config.getInstance().getResDir()), null,
 				Paths.get(Config.getInstance().getOutFile()));
 
 		System.exit(ret);

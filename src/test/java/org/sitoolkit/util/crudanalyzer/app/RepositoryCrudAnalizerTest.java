@@ -9,7 +9,7 @@ import org.junit.Test;
 
 public class RepositoryCrudAnalizerTest {
 
-    RepositoryCrudAnalizer analizer = new RepositoryCrudAnalizer();
+    RepositoryCrudAnalyzer analizer = new RepositoryCrudAnalyzer();
 
     @Test
     public void test() {

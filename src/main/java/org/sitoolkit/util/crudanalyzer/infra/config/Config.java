@@ -71,7 +71,7 @@ public class Config {
 	}
 
 	public String getJarList() {
-		return prop.getProperty("jarList");
+		return prop.getProperty("jarList", "jar-list.txt");
 	}
 
 	public String getRepositoryPathPattern() {

@@ -6,6 +6,7 @@ import static org.junit.Assert.assertThat;
 import java.nio.file.Paths;
 
 import org.junit.Test;
+import org.sitoolkit.util.crudanalyzer.infra.config.Config;
 
 public class ControllerCrudAnalyzerTest {
 
